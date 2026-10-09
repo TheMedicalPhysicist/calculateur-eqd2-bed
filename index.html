@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Calculateur EQD2 / BED</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one working column. α/β strip on top, three tabs (conversion, cumul, comparaison), one panel each. */
+:root {
+  --bg: #f2f5f8;
+  --surface: #ffffff;
+  --ink: #0e1a26;
+  --ink2: #44566a;
+  --muted: #5d6c7b;
+  --line: #dbe3ea;
+  --edge: #b9c6d2;
+  --accent: #256abf;
+  --accent-ink: #ffffff;
+  --accent-wash: #e6effa;
+  --warn: #8a4f00;
+  --warn-wash: #fdf1dc;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
+  --display: 'IBM Plex Sans Condensed', 'Arial Narrow', system-ui, sans-serif;
+  --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0a1119; --surface: #121c27; --ink: #eaf1f7; --ink2: #b4c1ce; --muted: #8fa0b0;
+    --line: #243241; --edge: #3a4b5d; --accent: #6da7ec; --accent-ink: #0a1119; --accent-wash: #16283b;
+    --warn: #f0b45a; --warn-wash: #2c2210;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0a1119; --surface: #121c27; --ink: #eaf1f7; --ink2: #b4c1ce; --muted: #8fa0b0;
+  --line: #243241; --edge: #3a4b5d; --accent: #6da7ec; --accent-ink: #0a1119; --accent-wash: #16283b;
+  --warn: #f0b45a; --warn-wash: #2c2210;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font: 15px/1.5 var(--sans);
+  padding-inline: 16px; padding-block: 28px 56px;
+}
+.wrap { max-width: 1040px; margin-inline: auto; display: flex; flex-direction: column; gap: 22px; }
+.wrap > * { min-width: 0; }
+
+header h1 {
+  font: 600 clamp(1.9rem, 4.5vw, 2.7rem)/1.05 var(--display);
+  letter-spacing: -0.01em; margin: 6px 0 8px; text-wrap: balance;
+}
+.eyebrow { font: 500 11.5px/1 var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.formulas { display: flex; flex-wrap: wrap; gap: 6px 22px; font: 400 13px/1.5 var(--mono); color: var(--ink2); }
+.formulas b { font-weight: 500; color: var(--ink); }
+
+/* α/β strip */
+.abstrip { display: grid; grid-template-columns: auto 1fr; gap: 12px 24px; align-items: end; padding-block: 16px; border-block: 1px solid var(--line); }
+.abstrip .hint { grid-column: 1 / -1; color: var(--muted); font-size: 13px; margin: 0; }
+.abfield label, .f label { display: block; font: 500 12px/1.3 var(--sans); color: var(--ink2); margin-bottom: 5px; }
+.abfield .in { width: 120px; font-size: 22px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  font: 500 13px/1 var(--sans); padding: 9px 12px; border-radius: 6px; cursor: pointer;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--edge);
+}
+.chip .v { font-family: var(--mono); color: var(--ink2); margin-left: 6px; }
+.chip:hover { border-color: var(--accent); }
+.chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.chip[aria-pressed="true"] .v { color: inherit; }
+
+/* inputs */
+.in {
+  width: 100%; font: 500 16px/1.2 var(--mono); padding: 9px 10px; border-radius: 6px;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--edge);
+}
+.in.txt { font-family: var(--sans); font-weight: 400; }
+.in:focus-visible, .chip:focus-visible, .tab:focus-visible, .btn:focus-visible, .x:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+/* tabs */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tab {
+  font: 600 15px/1 var(--display); letter-spacing: 0.01em; padding: 12px 16px; background: none; border: 0;
+  border-bottom: 3px solid transparent; color: var(--muted); cursor: pointer; white-space: nowrap; margin-bottom: -1px;
+}
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 22px; }
+.panel h2 { font: 600 18px/1.2 var(--display); margin: 0 0 4px; letter-spacing: 0.01em; }
+.panel p.sub { margin: 0; color: var(--ink2); font-size: 14px; }
+
+.inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; max-width: 520px; }
+
+/* result tiles */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.tile { padding: 12px 14px; border-radius: 8px; border: 1px solid var(--line); }
+.tile .lab { font: 500 12px/1.2 var(--sans); color: var(--ink2); }
+.tile .num { font: 500 clamp(1.6rem, 4vw, 2.1rem)/1.15 var(--mono); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.tile .num small { font-size: 0.5em; color: var(--muted); margin-left: 4px; }
+.tile.key { background: var(--accent-wash); border-color: transparent; }
+.tile.key .num { color: var(--accent); }
+.tile.bad { background: var(--warn-wash); border-color: transparent; }
+.tile.bad .num { color: var(--warn); }
+
+.block { display: flex; flex-direction: column; gap: 14px; padding-top: 20px; border-top: 1px solid var(--line); }
+.block h3 { font: 600 15px/1.2 var(--display); margin: 0; letter-spacing: 0.01em; }
+.readout { font: 400 14px/1.6 var(--sans); color: var(--ink2); margin: 0; }
+.readout b { font-family: var(--mono); font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+.readout.warn { color: var(--warn); }
+.readout.warn b { color: var(--warn); }
+
+/* editable rows */
+.rows { display: flex; flex-direction: column; gap: 10px; }
+.row {
+  display: grid; gap: 10px 12px; align-items: end; padding: 12px; border: 1px solid var(--line); border-radius: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.row > * { min-width: 0; }
+.row .name { grid-column: 1 / -1; }
+.row .x { grid-column: 3; justify-self: end; }
+.cmp-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cmp-row .x { grid-column: 2; }
+.o .lab { display: block; font: 500 12px/1.3 var(--sans); color: var(--ink2); margin-bottom: 5px; }
+.o .val { display: block; font: 500 16px/1.2 var(--mono); padding-block: 9px; font-variant-numeric: tabular-nums; }
+.o.strong .val { color: var(--accent); }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.x {
+  font: 500 20px/1 var(--sans); width: 40px; height: 40px; border-radius: 6px; cursor: pointer;
+  background: none; color: var(--muted); border: 1px solid var(--line);
+}
+.x:hover { color: var(--ink); border-color: var(--edge); }
+.btn {
+  align-self: flex-start; font: 500 14px/1 var(--sans); padding: 11px 14px; border-radius: 6px; cursor: pointer;
+  background: var(--surface); color: var(--accent); border: 1px solid var(--accent);
+}
+.btn:hover { background: var(--accent-wash); }
+.btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+@media (min-width: 760px) {
+  .cum-row { grid-template-columns: minmax(150px, 1.5fr) 90px 80px repeat(3, minmax(70px, 1fr)) 40px; }
+  .cum-row .name { grid-column: auto; }
+  .cum-row .x { grid-column: auto; }
+  .cmp-row { grid-template-columns: 110px 90px repeat(3, minmax(80px, 1fr)) 40px; }
+  .cmp-row .x { grid-column: auto; }
+}
+.tag { font: 500 11px/1 var(--sans); color: var(--warn); }
+
+/* cumul bar */
+.bar-wrap { position: relative; padding-top: 22px; }
+.bar { display: flex; gap: 2px; height: 22px; }
+.bar > i { display: block; border-radius: 3px; min-width: 2px; }
+.bar > i.rest { background: var(--line); }
+.limit { position: absolute; top: 0; bottom: -4px; width: 0; border-left: 2px solid var(--ink); }
+.limit span { position: absolute; top: 0; transform: translateX(-50%); font: 500 11px/1 var(--mono); background: var(--surface); padding: 0 3px; white-space: nowrap; color: var(--ink); }
+.limit.edge-r span { transform: translateX(-100%); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--ink2); }
+.legend b { font-family: var(--mono); font-weight: 500; color: var(--ink); }
+
+/* chart */
+#chart { position: relative; }
+#chart svg { display: block; width: 100%; touch-action: pan-y; }
+#chart text { font: 400 11px var(--mono); fill: var(--ink2); }
+.tip {
+  position: absolute; pointer-events: none; z-index: 2; padding: 8px 10px; border-radius: 6px;
+  background: var(--surface); border: 1px solid var(--edge); font: 400 12px/1.5 var(--mono); color: var(--ink);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14); white-space: nowrap;
+}
+.tip b { display: block; font-weight: 500; margin-bottom: 2px; }
+.tip i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.empty { color: var(--muted); }
+
+table.vals { border-collapse: collapse; font: 400 13px/1.4 var(--mono); width: 100%; min-width: 520px; font-variant-numeric: tabular-nums; }
+table.vals th, table.vals td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.vals th:first-child, table.vals td:first-child { text-align: left; }
+table.vals th { color: var(--ink2); font-weight: 500; }
+.scroll { overflow-x: auto; }
+details summary { cursor: pointer; font-weight: 500; color: var(--accent); }
+details.notes { color: var(--ink2); font-size: 14px; }
+details.notes ul { margin: 10px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+@media (prefers-reduced-motion: no-preference) {
+  .tile, .chip, .tab { transition: background-color 0.15s, color 0.15s, border-color 0.15s; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Radiothérapie · modèle linéaire-quadratique</div>
+    <h1>Calculateur EQD2 / BED</h1>
+    <div class="formulas">
+      <span><b>BED</b> = n · d · (1 + d / (α/β))</span>
+      <span><b>EQD2</b> = BED / (1 + 2 / (α/β))</span>
+    </div>
+  </header>
+
+  <section class="abstrip" aria-label="Paramètre α/β">
+    <div class="abfield">
+      <label for="ab">α/β du tissu (Gy)</label>
+      <input id="ab" class="in" type="text" inputmode="decimal" value="3" autocomplete="off">
+    </div>
+    <div class="chips" id="chips"></div>
+    <p class="hint">Valeurs conventionnelles de la littérature. Remplacez-les par celles de votre protocole si elles diffèrent.</p>
+  </section>
+
+  <div>
+    <div class="tabs" role="tablist" aria-label="Fonctions">
+      <button class="tab" role="tab" id="tab-conv" aria-controls="p-conv" aria-selected="true" data-tab="conversion">Conversion</button>
+      <button class="tab" role="tab" id="tab-cum" aria-controls="p-cum" aria-selected="false" data-tab="cumul">Cumul et réirradiation</button>
+      <button class="tab" role="tab" id="tab-cmp" aria-controls="p-cmp" aria-selected="false" data-tab="comparer">Comparer des schémas</button>
+    </div>
+
+    <!-- Conversion -->
+    <section class="panel" id="p-conv" role="tabpanel" aria-labelledby="tab-conv">
+      <div>
+        <h2>Un schéma, ses équivalents</h2>
+        <p class="sub">Exemple chargé : 2,67 Gy × 15 fractions. Modifiez les valeurs pour calculer le vôtre.</p>
+      </div>
+      <div class="inputs">
+        <div class="f"><label for="c-d">Dose par fraction d (Gy)</label><input id="c-d" class="in" type="text" inputmode="decimal" value="2,67" autocomplete="off"></div>
+        <div class="f"><label for="c-n">Nombre de fractions n</label><input id="c-n" class="in" type="text" inputmode="decimal" value="15" autocomplete="off"></div>
+      </div>
+      <div class="tiles">
+        <div class="tile"><div class="lab">Dose totale</div><div class="num"><span id="c-D">–</span><small>Gy</small></div></div>
+        <div class="tile"><div class="lab">BED</div><div class="num"><span id="c-bed">–</span><small>Gy</small></div></div>
+        <div class="tile key"><div class="lab">EQD2</div><div class="num"><span id="c-eqd2">–</span><small>Gy</small></div></div>
+      </div>
+      <div class="block">
+        <h3>Même effet avec un autre fractionnement</h3>
+        <div class="inputs">
+          <div class="f"><label for="c-dt">Dose par fraction cible (Gy)</label><input id="c-dt" class="in" type="text" inputmode="decimal" value="3" autocomplete="off"></div>
+        </div>
+        <p class="readout" id="c-iso">–</p>
+        <p class="readout" id="c-round">–</p>
+      </div>
+    </section>
+
+    <!-- Cumul -->
+    <section class="panel" id="p-cum" role="tabpanel" aria-labelledby="tab-cum" hidden>
+      <div>
+        <h2>Cumul des traitements</h2>
+        <p class="sub">Chaque traitement est converti en EQD2 avec l'α/β choisi plus haut, puis les EQD2 sont additionnées. Exemple chargé, à remplacer.</p>
+      </div>
+      <div class="rows" id="cum-rows"></div>
+      <button class="btn" id="cum-add" type="button">Ajouter un traitement</button>
+      <div class="tiles">
+        <div class="tile"><div class="lab">BED cumulée</div><div class="num"><span id="cum-bed">–</span><small>Gy</small></div></div>
+        <div class="tile key"><div class="lab">EQD2 cumulée</div><div class="num"><span id="cum-eqd2">–</span><small>Gy</small></div></div>
+      </div>
+      <div class="block">
+        <h3>Reste-t-il de la marge ?</h3>
+        <div class="inputs">
+          <div class="f"><label for="cum-limit">Limite d'EQD2 cumulée (Gy)</label><input id="cum-limit" class="in" type="text" inputmode="decimal" value="90" autocomplete="off"></div>
+          <div class="f"><label for="cum-next">Dose par fraction prévue (Gy)</label><input id="cum-next" class="in" type="text" inputmode="decimal" value="2" autocomplete="off"></div>
+        </div>
+        <p class="sub" style="margin:0">La limite chargée (90 Gy) est un exemple. Saisissez la contrainte de votre organe à risque.</p>
+        <div class="bar-wrap" id="cum-barwrap"><div class="bar" id="cum-bar"></div></div>
+        <div class="legend" id="cum-legend"></div>
+        <p class="readout" id="cum-rem">–</p>
+      </div>
+    </section>
+
+    <!-- Comparaison -->
+    <section class="panel" id="p-cmp" role="tabpanel" aria-labelledby="tab-cmp" hidden>
+      <div>
+        <h2>Comparer des fractionnements</h2>
+        <p class="sub">Les valeurs du tableau utilisent l'α/β choisi plus haut. Le graphique montre comment l'EQD2 de chaque schéma change avec l'α/β.</p>
+      </div>
+      <div class="rows" id="cmp-rows"></div>
+      <button class="btn" id="cmp-add" type="button">Ajouter un schéma</button>
+      <p class="readout warn" id="cmp-note" hidden>† Au-delà d'environ 8 Gy par fraction, la validité du modèle linéaire-quadratique est discutée. Interprétez ces valeurs avec prudence.</p>
+      <div class="legend" id="cmp-legend"></div>
+      <div id="chart"></div>
+      <details>
+        <summary>Valeurs du graphique</summary>
+        <div class="scroll" style="margin-top:10px"><table class="vals" id="cmp-table"></table></div>
+      </details>
+    </section>
+  </div>
+
+  <details class="notes">
+    <summary>Hypothèses et limites</summary>
+    <ul>
+      <li>Modèle linéaire-quadratique simple, sans correction de repopulation ni de réparation incomplète entre fractions.</li>
+      <li>Le cumul additionne des EQD2 sans tenir compte de la récupération des tissus entre deux traitements ni de l'intervalle de temps.</li>
+      <li>Les valeurs d'α/β proposées sont conventionnelles. Le choix pour un organe donné relève de votre protocole.</li>
+      <li>Outil d'aide au calcul. Validez-le contre vos méthodes de référence avant tout usage clinique.</li>
+    </ul>
+  </details>
+</div>
+
+<script>
+(function () {
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var nf = function (x, m) {
+    if (m === undefined) m = 2;
+    return isFinite(x) ? x.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: m }) : '–';
+  };
+  var parse = function (v) { return parseFloat(String(v).replace(',', '.').replace(/\s/g, '')); };
+  var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+
+  /* Linear-quadratic formulas */
+  var bed = function (d, n, ab) { return n * d * (1 + d / ab); };
+  var eqd2 = function (d, n, ab) { return bed(d, n, ab) / (1 + 2 / ab); };
+  var doseFromBed = function (b, d, ab) { return b / (1 + d / ab); };
+  var getAb = function () { return parse($('#ab').value); };
+  var okAb = function (ab) { return isFinite(ab) && ab > 0; };
+  var okPos = function (x) { return isFinite(x) && x > 0; };
+  window.__lq = { bed: bed, eqd2: eqd2, doseFromBed: doseFromBed };
+
+  /* ---------- α/β presets ---------- */
+  var PRESETS = [
+    ['Tumeur, réponse précoce', 10],
+    ['Tissus sains tardifs', 3],
+    ['Sein', 4],
+    ['Moelle épinière', 2],
+    ['Prostate', 1.5]
+  ];
+  var chips = $('#chips');
+  chips.innerHTML = PRESETS.map(function (p) {
+    return '<button type="button" class="chip" aria-pressed="false" data-ab="' + p[1] + '">' + p[0] + '<span class="v">' + nf(p[1], 1) + '</span></button>';
+  }).join('');
+  chips.addEventListener('click', function (e) {
+    var b = e.target.closest('.chip'); if (!b) return;
+    $('#ab').value = String(b.dataset.ab).replace('.', ',');
+    updateAll();
+  });
+  function syncChips() {
+    var ab = getAb();
+    $$('.chip').forEach(function (c) { c.setAttribute('aria-pressed', String(Math.abs(parseFloat(c.dataset.ab) - ab) < 1e-9)); });
+  }
+  $('#ab').addEventListener('input', updateAll);
+
+  /* ---------- Conversion ---------- */
+  function updConv() {
+    var ab = getAb(), d = parse($('#c-d').value), n = parse($('#c-n').value), dt = parse($('#c-dt').value);
+    var ok = okAb(ab) && okPos(d) && okPos(n);
+    var D = d * n, B = ok ? bed(d, n, ab) : NaN, E = ok ? eqd2(d, n, ab) : NaN;
+    $('#c-D').textContent = ok ? nf(D, 2) : '–';
+    $('#c-bed').textContent = nf(B, 1);
+    $('#c-eqd2').textContent = nf(E, 1);
+    var iso = $('#c-iso'), rd = $('#c-round');
+    if (!ok || !okPos(dt)) {
+      iso.innerHTML = 'Renseignez un schéma valide et une dose par fraction cible.'; rd.textContent = ''; return;
+    }
+    var Dt = doseFromBed(B, dt, ab), nt = Dt / dt;
+    iso.innerHTML = 'À <b>' + nf(dt, 2) + ' Gy</b> par fraction, il faut <b>' + nf(Dt, 2) + ' Gy</b>, soit <b>' + nf(nt, 2) + '</b> fractions.';
+    var nr = Math.max(1, Math.round(nt)), Dr = nr * dt, Er = eqd2(dt, nr, ab), diff = (Er / E - 1) * 100;
+    rd.innerHTML = 'Arrondi à <b>' + nr + '</b> fraction' + (nr > 1 ? 's' : '') + ' : <b>' + nf(Dr, 2) + ' Gy</b>, EQD2 <b>' + nf(Er, 1) + ' Gy</b> (<b>' + (diff >= 0 ? '+' : '−') + nf(Math.abs(diff), 1) + ' %</b> par rapport au schéma de départ).';
+  }
+  ['#c-d', '#c-n', '#c-dt'].forEach(function (s) { $(s).addEventListener('input', updConv); });
+
+  /* ---------- Cumul ---------- */
+  var uid = 0;
+  var cum = [
+    { uid: ++uid, name: '1re irradiation', d: '2', n: '25' },
+    { uid: ++uid, name: '2e irradiation', d: '3', n: '8' }
+  ];
+  function cumRowHTML(r, i) {
+    var id = 'cum-' + r.uid;
+    return '<div class="row cum-row" data-uid="' + r.uid + '">' +
+      '<div class="f name"><label for="' + id + '-name"><i class="sw" style="background:var(--s' + ((i % 8) + 1) + ')"></i>Traitement</label><input id="' + id + '-name" class="in txt" data-k="name" value="' + esc(r.name) + '" autocomplete="off"></div>' +
+      '<div class="f"><label for="' + id + '-d">d (Gy/fx)</label><input id="' + id + '-d" class="in" data-k="d" type="text" inputmode="decimal" value="' + esc(r.d) + '" autocomplete="off"></div>' +
+      '<div class="f"><label for="' + id + '-n">n fractions</label><input id="' + id + '-n" class="in" data-k="n" type="text" inputmode="decimal" value="' + esc(r.n) + '" autocomplete="off"></div>' +
+      '<div class="o"><span class="lab">Dose totale</span><span class="val" data-o="D">–</span></div>' +
+      '<div class="o"><span class="lab">BED</span><span class="val" data-o="B">–</span></div>' +
+      '<div class="o strong"><span class="lab">EQD2</span><span class="val" data-o="E">–</span></div>' +
+      '<button type="button" class="x" data-del aria-label="Supprimer ce traitement">×</button>' +
+      '</div>';
+  }
+  function renderCumRows() {
+    $('#cum-rows').innerHTML = cum.map(cumRowHTML).join('');
+    $('#cum-add').disabled = cum.length >= 8;
+  }
+  $('#cum-rows').addEventListener('input', function (e) {
+    var t = e.target, row = t.closest('.row');
+    if (!row || !t.dataset.k) return;
+    var r = cum.filter(function (x) { return String(x.uid) === row.dataset.uid; })[0];
+    if (r) { r[t.dataset.k] = t.value; updCum(); }
+  });
+  $('#cum-rows').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-del]'); if (!b) return;
+    var uidv = b.closest('.row').dataset.uid;
+    cum = cum.filter(function (x) { return String(x.uid) !== uidv; });
+    renderCumRows(); updCum();
+  });
+  $('#cum-add').addEventListener('click', function () {
+    if (cum.length >= 8) return;
+    cum.push({ uid: ++uid, name: 'Traitement ' + (cum.length + 1), d: '2', n: '10' });
+    renderCumRows(); updCum();
+  });
+  ['#cum-limit', '#cum-next'].forEach(function (s) { $(s).addEventListener('input', updCum); });
+
+  function updCum() {
+    var ab = getAb(), okA = okAb(ab), sumB = 0, sumE = 0, parts = [];
+    cum.forEach(function (r, i) {
+      var row = $('.row[data-uid="' + r.uid + '"]');
+      var d = parse(r.d), n = parse(r.n), ok = okA && okPos(d) && okPos(n);
+      var B = ok ? bed(d, n, ab) : NaN, E = ok ? eqd2(d, n, ab) : NaN;
+      if (row) {
+        $('[data-o="D"]', row).textContent = ok ? nf(d * n, 2) : '–';
+        $('[data-o="B"]', row).textContent = nf(B, 1);
+        $('[data-o="E"]', row).textContent = nf(E, 1);
+      }
+      if (ok) { sumB += B; sumE += E; parts.push({ i: i, name: r.name || ('Traitement ' + (i + 1)), E: E }); }
+    });
+    $('#cum-bed').textContent = parts.length ? nf(sumB, 1) : '–';
+    $('#cum-eqd2').textContent = parts.length ? nf(sumE, 1) : '–';
+
+    var limit = parse($('#cum-limit').value), dn = parse($('#cum-next').value);
+    var bar = $('#cum-bar'), wrap = $('#cum-barwrap'), lg = $('#cum-legend'), rem = $('#cum-rem');
+    $$('.limit', wrap).forEach(function (l) { l.remove(); });
+    if (!parts.length) { bar.innerHTML = ''; lg.innerHTML = ''; rem.textContent = 'Renseignez au moins un traitement valide.'; return; }
+    var hasLimit = okPos(limit);
+    var total = hasLimit ? Math.max(limit, sumE) : sumE;
+    var html = parts.map(function (p) { return '<i style="flex:' + p.E + ' 1 0;background:var(--s' + ((p.i % 8) + 1) + ')"></i>'; }).join('');
+    if (hasLimit && limit > sumE) html += '<i class="rest" style="flex:' + (limit - sumE) + ' 1 0"></i>';
+    bar.innerHTML = html;
+    if (hasLimit) {
+      var pct = limit / total * 100;
+      var m = document.createElement('div');
+      m.className = 'limit' + (pct > 85 ? ' edge-r' : '');
+      m.style.left = pct + '%';
+      m.innerHTML = '<span>limite ' + nf(limit, 1) + '</span>';
+      wrap.appendChild(m);
+    }
+    lg.innerHTML = parts.map(function (p) {
+      return '<span><i class="sw" style="background:var(--s' + ((p.i % 8) + 1) + ')"></i>' + esc(p.name) + ' <b>' + nf(p.E, 1) + ' Gy</b></span>';
+    }).join('');
+
+    if (!hasLimit) { rem.textContent = 'Saisissez une limite d\'EQD2 pour calculer la marge restante.'; rem.className = 'readout'; return; }
+    var left = limit - sumE;
+    if (left <= 0) {
+      rem.className = 'readout warn';
+      rem.innerHTML = 'Limite ' + (left === 0 ? 'atteinte' : 'dépassée de <b>' + nf(-left, 1) + ' Gy</b> en EQD2') + '. Plus de marge pour un traitement supplémentaire.';
+      return;
+    }
+    rem.className = 'readout';
+    if (!okA || !okPos(dn)) { rem.innerHTML = 'Marge restante : <b>' + nf(left, 1) + ' Gy</b> en EQD2.'; return; }
+    var Dmax = left * (2 + ab) / (dn + ab), nmax = Math.floor(Dmax / dn + 1e-9);
+    rem.innerHTML = 'Marge restante : <b>' + nf(left, 1) + ' Gy</b> en EQD2. À <b>' + nf(dn, 2) + ' Gy</b> par fraction, cela correspond à <b>' + nf(Dmax, 2) + ' Gy</b> de dose physique, soit au plus <b>' + nmax + '</b> fraction' + (nmax > 1 ? 's' : '') + ' entière' + (nmax > 1 ? 's' : '') + (nmax > 0 ? ' (<b>' + nf(nmax * dn, 2) + ' Gy</b>)' : '') + '.';
+  }
+
+  /* ---------- Comparaison ---------- */
+  var cmp = [
+    { uid: ++uid, d: '2', n: '30' },
+    { uid: ++uid, d: '2,67', n: '15' },
+    { uid: ++uid, d: '3', n: '10' },
+    { uid: ++uid, d: '6', n: '5' },
+    { uid: ++uid, d: '12', n: '3' },
+    { uid: ++uid, d: '20', n: '1' }
+  ];
+  function labelOf(r) { return nf(parse(r.d), 2) + ' Gy × ' + nf(parse(r.n), 2); }
+  function cmpRowHTML(r, i) {
+    var id = 'cmp-' + r.uid;
+    return '<div class="row cmp-row" data-uid="' + r.uid + '">' +
+      '<div class="f"><label for="' + id + '-d"><i class="sw" style="background:var(--s' + ((i % 8) + 1) + ')"></i>d (Gy/fx)</label><input id="' + id + '-d" class="in" data-k="d" type="text" inputmode="decimal" value="' + esc(r.d) + '" autocomplete="off"></div>' +
+      '<div class="f"><label for="' + id + '-n">n fractions</label><input id="' + id + '-n" class="in" data-k="n" type="text" inputmode="decimal" value="' + esc(r.n) + '" autocomplete="off"></div>' +
+      '<div class="o"><span class="lab">Dose totale</span><span class="val" data-o="D">–</span></div>' +
+      '<div class="o"><span class="lab">BED</span><span class="val" data-o="B">–</span></div>' +
+      '<div class="o strong"><span class="lab">EQD2</span><span class="val" data-o="E">–</span></div>' +
+      '<button type="button" class="x" data-del aria-label="Supprimer ce schéma">×</button>' +
+      '</div>';
+  }
+  function renderCmpRows() {
+    $('#cmp-rows').innerHTML = cmp.map(cmpRowHTML).join('');
+    $('#cmp-add').disabled = cmp.length >= 8;
+  }
+  $('#cmp-rows').addEventListener('input', function (e) {
+    var t = e.target, row = t.closest('.row');
+    if (!row || !t.dataset.k) return;
+    var r = cmp.filter(function (x) { return String(x.uid) === row.dataset.uid; })[0];
+    if (r) { r[t.dataset.k] = t.value; updCmp(); }
+  });
+  $('#cmp-rows').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-del]'); if (!b) return;
+    var uidv = b.closest('.row').dataset.uid;
+    cmp = cmp.filter(function (x) { return String(x.uid) !== uidv; });
+    renderCmpRows(); updCmp();
+  });
+  $('#cmp-add').addEventListener('click', function () {
+    if (cmp.length >= 8) return;
+    cmp.push({ uid: ++uid, d: '2', n: '25' });
+    renderCmpRows(); updCmp();
+  });
+
+  var series = [], lastW = 0;
+  function updCmp() {
+    var ab = getAb(), okA = okAb(ab), anyHigh = false;
+    series = [];
+    cmp.forEach(function (r, i) {
+      var row = $('.row[data-uid="' + r.uid + '"]');
+      var d = parse(r.d), n = parse(r.n), ok = okA && okPos(d) && okPos(n);
+      var high = okPos(d) && d > 8;
+      if (ok && high) anyHigh = true;
+      if (row) {
+        $('[data-o="D"]', row).textContent = ok ? nf(d * n, 2) : '–';
+        $('[data-o="B"]', row).textContent = ok ? nf(bed(d, n, ab), 1) : '–';
+        $('[data-o="E"]', row).innerHTML = ok ? nf(eqd2(d, n, ab), 1) + (high ? ' <span class="tag">†</span>' : '') : '–';
+      }
+      if (okPos(d) && okPos(n)) series.push({ i: i, d: d, n: n, label: labelOf(r) });
+    });
+    $('#cmp-note').hidden = !anyHigh;
+    $('#cmp-legend').innerHTML = series.map(function (s) {
+      return '<span><i class="sw" style="background:var(--s' + ((s.i % 8) + 1) + ')"></i>' + esc(s.label) + '</span>';
+    }).join('');
+
+    var abs = [1, 2, 3, 4, 5, 8, 10, 15];
+    $('#cmp-table').innerHTML = '<thead><tr><th>EQD2 (Gy) pour α/β =</th>' + abs.map(function (a) { return '<th>' + a + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      series.map(function (s) {
+        return '<tr><td>' + esc(s.label) + '</td>' + abs.map(function (a) { return '<td>' + nf(eqd2(s.d, s.n, a), 1) + '</td>'; }).join('') + '</tr>';
+      }).join('') + '</tbody>';
+    drawChart();
+  }
+
+  function niceStep(maxv) {
+    var raw = maxv / 5, p = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10)), c = [1, 2, 2.5, 5, 10];
+    for (var k = 0; k < c.length; k++) if (c[k] * p >= raw) return c[k] * p;
+    return 10 * p;
+  }
+
+  function drawChart() {
+    var host = $('#chart');
+    if ($('#p-cmp').hidden) return;
+    var W = Math.max(300, host.clientWidth);
+    lastW = W;
+    if (!series.length) { host.innerHTML = '<p class="empty">Ajoutez au moins un schéma valide pour tracer le graphique.</p>'; return; }
+    var narrow = W < 520, H = narrow ? 300 : 380;
+    var m = { l: 46, r: narrow ? 78 : 104, t: 22, b: 40 };
+    var xs = []; for (var a = 1; a <= 15; a += 0.5) xs.push(a);
+    var maxv = 0;
+    series.forEach(function (s) { s.pts = xs.map(function (a) { return eqd2(s.d, s.n, a); }); s.pts.forEach(function (v) { if (v > maxv) maxv = v; }); });
+    var step = niceStep(Math.max(maxv, 1)), ymax = Math.ceil(maxv / step) * step;
+    var pw = W - m.l - m.r, ph = H - m.t - m.b;
+    var sx = function (a) { return m.l + (a - 1) / 14 * pw; };
+    var sy = function (v) { return m.t + ph - v / ymax * ph; };
+    var g = '';
+    for (var t = 0; t <= ymax + 1e-9; t += step) {
+      g += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + sy(t) + '" y2="' + sy(t) + '" style="stroke:var(--line);stroke-width:1"/>' +
+           '<text x="' + (m.l - 8) + '" y="' + (sy(t) + 4) + '" text-anchor="end">' + nf(t, 1) + '</text>';
+    }
+    [1, 3, 5, 7, 9, 11, 13, 15].forEach(function (a) {
+      g += '<text x="' + sx(a) + '" y="' + (H - m.b + 16) + '" text-anchor="middle">' + a + '</text>';
+    });
+    g += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + sy(0) + '" y2="' + sy(0) + '" style="stroke:var(--edge);stroke-width:1"/>';
+    g += '<text x="' + m.l + '" y="12" text-anchor="start">EQD2 (Gy)</text>';
+    g += '<text x="' + (m.l + pw / 2) + '" y="' + (H - 6) + '" text-anchor="middle">α/β (Gy)</text>';
+    var ab = getAb();
+    if (okAb(ab) && ab >= 1 && ab <= 15) {
+      g += '<line x1="' + sx(ab) + '" x2="' + sx(ab) + '" y1="' + m.t + '" y2="' + sy(0) + '" style="stroke:var(--accent);stroke-width:1;stroke-dasharray:4 3"/>' +
+           '<text x="' + sx(ab) + '" y="' + (m.t - 6) + '" text-anchor="' + (ab > 12 ? 'end' : 'start') + '" style="fill:var(--accent)">α/β choisi : ' + nf(ab, 2) + '</text>';
+    }
+    series.forEach(function (s) {
+      var d = s.pts.map(function (v, k) { return (k ? 'L' : 'M') + sx(xs[k]).toFixed(1) + ' ' + sy(v).toFixed(1); }).join('');
+      g += '<path d="' + d + '" style="fill:none;stroke:var(--s' + ((s.i % 8) + 1) + ');stroke-width:2;stroke-linejoin:round;stroke-linecap:round"/>';
+    });
+    var labs = series.map(function (s) { return { s: s, y: sy(s.pts[s.pts.length - 1]) }; }).sort(function (p, q) { return p.y - q.y; });
+    for (var k = 0; k < labs.length; k++) {
+      if (labs[k].y < m.t + 4) labs[k].y = m.t + 4;
+      if (k && labs[k].y - labs[k - 1].y < 13) labs[k].y = labs[k - 1].y + 13;
+    }
+    labs.forEach(function (l) {
+      g += '<circle cx="' + (W - m.r + 8) + '" cy="' + (l.y - 3.5) + '" r="4" style="fill:var(--s' + ((l.s.i % 8) + 1) + ')"/>' +
+           '<text x="' + (W - m.r + 16) + '" y="' + l.y + '">' + esc(nf(l.s.d, 2) + '×' + nf(l.s.n, 2)) + '</text>';
+    });
+    g += '<line class="cross" x1="0" x2="0" y1="' + m.t + '" y2="' + sy(0) + '" style="stroke:var(--ink2);stroke-width:1;display:none"/><g class="dots"></g>' +
+         '<rect class="hit" x="' + m.l + '" y="' + m.t + '" width="' + pw + '" height="' + ph + '" style="fill:transparent"/>';
+    host.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="EQD2 de chaque schéma en fonction de l\'α/β">' + g + '</svg><div class="tip" hidden></div>';
+
+    var svg = $('svg', host), tip = $('.tip', host), cross = $('.cross', svg), dots = $('.dots', svg);
+    function hide() { tip.hidden = true; cross.style.display = 'none'; dots.innerHTML = ''; }
+    function move(ev) {
+      var r = svg.getBoundingClientRect(), x = (ev.clientX - r.left) * (W / r.width);
+      if (x < m.l || x > W - m.r) { hide(); return; }
+      var a = 1 + (x - m.l) / pw * 14; a = Math.min(15, Math.max(1, Math.round(a * 2) / 2));
+      var px = sx(a);
+      cross.setAttribute('x1', px); cross.setAttribute('x2', px); cross.style.display = '';
+      dots.innerHTML = series.map(function (s) {
+        return '<circle cx="' + px + '" cy="' + sy(eqd2(s.d, s.n, a)) + '" r="4" style="fill:var(--s' + ((s.i % 8) + 1) + ');stroke:var(--surface);stroke-width:2"/>';
+      }).join('');
+      tip.innerHTML = '<b>α/β = ' + nf(a, 1) + ' Gy</b>' + series.map(function (s) {
+        return '<div><i style="background:var(--s' + ((s.i % 8) + 1) + ')"></i>' + esc(s.label) + ' : ' + nf(eqd2(s.d, s.n, a), 1) + ' Gy</div>';
+      }).join('');
+      tip.hidden = false;
+      var tw = tip.offsetWidth, left = px * (r.width / W) + 12;
+      if (left + tw > r.width) left = px * (r.width / W) - tw - 12;
+      tip.style.left = Math.max(0, left) + 'px'; tip.style.top = (m.t + 4) + 'px';
+    }
+    svg.addEventListener('pointermove', move);
+    svg.addEventListener('pointerdown', move);
+    svg.addEventListener('pointerleave', hide);
+  }
+  if (window.ResizeObserver) {
+    new ResizeObserver(function () { var w = $('#chart').clientWidth; if (w && Math.abs(w - lastW) > 1) drawChart(); }).observe($('#chart'));
+  } else {
+    window.addEventListener('resize', drawChart);
+  }
+
+  /* ---------- Tabs ---------- */
+  var TABS = { conversion: ['tab-conv', 'p-conv'], cumul: ['tab-cum', 'p-cum'], comparer: ['tab-cmp', 'p-cmp'] };
+  function showTab(key, keepHash) {
+    Object.keys(TABS).forEach(function (k) {
+      var on = k === key;
+      $('#' + TABS[k][0]).setAttribute('aria-selected', String(on));
+      $('#' + TABS[k][1]).hidden = !on;
+    });
+    if (!keepHash) { try { history.replaceState(null, '', '#' + key); } catch (e) {} }
+    if (key === 'comparer') drawChart();
+  }
+  $$('.tab').forEach(function (b) { b.addEventListener('click', function () { showTab(b.dataset.tab); }); });
+
+  function updateAll() { syncChips(); updConv(); updCum(); updCmp(); }
+
+  renderCumRows(); renderCmpRows(); updateAll();
+  var h = (location.hash || '').replace('#', '');
+  if (TABS[h]) showTab(h, true);
+})();
+</script>
+</body>
+</html>
