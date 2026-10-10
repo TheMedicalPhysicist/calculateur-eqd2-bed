@@ -66,8 +66,11 @@ header h1 {
 /* α/β strip */
 .abstrip { display: grid; grid-template-columns: auto 1fr; gap: 12px 24px; align-items: end; padding-block: 16px; border-block: 1px solid var(--line); }
 .abstrip .hint { grid-column: 1 / -1; color: var(--muted); font-size: 13px; margin: 0; }
+@media (max-width: 640px) { .abstrip { grid-template-columns: minmax(0, 1fr); } }
 .abfield label, .f label { display: block; font: 500 12px/1.3 var(--sans); color: var(--ink2); margin-bottom: 5px; }
+.abfields { display: flex; flex-wrap: wrap; gap: 12px 16px; }
 .abfield .in { width: 120px; font-size: 22px; }
+.abfield.u .in { width: 96px; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
   font: 500 13px/1 var(--sans); padding: 9px 12px; border-radius: 6px; cursor: pointer;
@@ -148,13 +151,22 @@ header h1 {
 .btn:hover { background: var(--accent-wash); }
 .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
 @media (min-width: 760px) {
-  .cum-row { grid-template-columns: minmax(150px, 1.5fr) 90px 80px repeat(3, minmax(70px, 1fr)) 40px; }
-  .cum-row .name { grid-column: auto; }
-  .cum-row .x { grid-column: auto; }
   .cmp-row { grid-template-columns: 110px 90px repeat(3, minmax(80px, 1fr)) 40px; }
   .cmp-row .x { grid-column: auto; }
 }
+@media (min-width: 960px) {
+  .cum-row { grid-template-columns: minmax(130px, 1.3fr) 76px 66px 84px repeat(4, minmax(62px, 1fr)) 40px; }
+  .cum-row .name { grid-column: auto; }
+  .cum-row .x { grid-column: auto; }
+}
 .tag { font: 500 11px/1 var(--sans); color: var(--warn); }
+.tile .rng { font: 400 12px/1.4 var(--mono); color: var(--ink2); margin-top: 6px; }
+.exp { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+.exp .msg { font-size: 13px; color: var(--ink2); }
+textarea.exportbox {
+  width: 100%; min-height: 150px; font: 400 12.5px/1.5 var(--mono); padding: 10px; border-radius: 6px;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--edge); resize: vertical;
+}
 
 /* cumul bar */
 .bar-wrap { position: relative; padding-top: 22px; }
@@ -206,12 +218,18 @@ details.notes ul { margin: 10px 0 0; padding-left: 20px; display: flex; flex-dir
   </header>
 
   <section class="abstrip" aria-label="Paramètre α/β">
-    <div class="abfield">
-      <label for="ab">α/β du tissu (Gy)</label>
-      <input id="ab" class="in" type="text" inputmode="decimal" value="3" autocomplete="off">
+    <div class="abfields">
+      <div class="abfield">
+        <label for="ab">α/β du tissu (Gy)</label>
+        <input id="ab" class="in" type="text" inputmode="decimal" value="3" autocomplete="off">
+      </div>
+      <div class="abfield u">
+        <label for="ab-u">Incertitude ± (Gy)</label>
+        <input id="ab-u" class="in" type="text" inputmode="decimal" value="0" autocomplete="off">
+      </div>
     </div>
     <div class="chips" id="chips"></div>
-    <p class="hint">Valeurs conventionnelles de la littérature. Remplacez-les par celles de votre protocole si elles diffèrent.</p>
+    <p class="hint">Valeurs conventionnelles de la littérature. Remplacez-les par celles de votre protocole si elles diffèrent. Une incertitude supérieure à 0 affiche la fourchette des résultats pour α/β ± cette valeur.</p>
   </section>
 
   <div>
@@ -233,8 +251,8 @@ details.notes ul { margin: 10px 0 0; padding-left: 20px; display: flex; flex-dir
       </div>
       <div class="tiles">
         <div class="tile"><div class="lab">Dose totale</div><div class="num"><span id="c-D">–</span><small>Gy</small></div></div>
-        <div class="tile"><div class="lab">BED</div><div class="num"><span id="c-bed">–</span><small>Gy</small></div></div>
-        <div class="tile key"><div class="lab">EQD2</div><div class="num"><span id="c-eqd2">–</span><small>Gy</small></div></div>
+        <div class="tile"><div class="lab">BED</div><div class="num"><span id="c-bed">–</span><small>Gy</small></div><div class="rng" id="c-bed-r" hidden></div></div>
+        <div class="tile key"><div class="lab">EQD2</div><div class="num"><span id="c-eqd2">–</span><small>Gy</small></div><div class="rng" id="c-eqd2-r" hidden></div></div>
       </div>
       <div class="block">
         <h3>Même effet avec un autre fractionnement</h3>
@@ -244,19 +262,21 @@ details.notes ul { margin: 10px 0 0; padding-left: 20px; display: flex; flex-dir
         <p class="readout" id="c-iso">–</p>
         <p class="readout" id="c-round">–</p>
       </div>
+      <div class="exp"><button class="btn" type="button" data-copy="conv">Copier le calcul</button><span class="msg" role="status"></span></div>
+      <textarea class="exportbox" readonly hidden aria-label="Texte du calcul"></textarea>
     </section>
 
     <!-- Cumul -->
     <section class="panel" id="p-cum" role="tabpanel" aria-labelledby="tab-cum" hidden>
       <div>
         <h2>Cumul des traitements</h2>
-        <p class="sub">Chaque traitement est converti en EQD2 avec l'α/β choisi plus haut, puis les EQD2 sont additionnées. Exemple chargé, à remplacer.</p>
+        <p class="sub">Chaque traitement est converti en EQD2 avec l'α/β choisi plus haut, puis les EQD2 sont additionnées. La colonne « Récupéré (%) » retire une part de l'EQD2 d'un traitement ancien (0 % = cumul simple, aucune valeur n'est imposée). Exemple chargé, à remplacer.</p>
       </div>
       <div class="rows" id="cum-rows"></div>
       <button class="btn" id="cum-add" type="button">Ajouter un traitement</button>
       <div class="tiles">
-        <div class="tile"><div class="lab">BED cumulée</div><div class="num"><span id="cum-bed">–</span><small>Gy</small></div></div>
-        <div class="tile key"><div class="lab">EQD2 cumulée</div><div class="num"><span id="cum-eqd2">–</span><small>Gy</small></div></div>
+        <div class="tile"><div class="lab">BED cumulée</div><div class="num"><span id="cum-bed">–</span><small>Gy</small></div><div class="rng" id="cum-bed-r" hidden></div></div>
+        <div class="tile key"><div class="lab">EQD2 cumulée</div><div class="num"><span id="cum-eqd2">–</span><small>Gy</small></div><div class="rng" id="cum-eqd2-r" hidden></div></div>
       </div>
       <div class="block">
         <h3>Reste-t-il de la marge ?</h3>
@@ -269,6 +289,8 @@ details.notes ul { margin: 10px 0 0; padding-left: 20px; display: flex; flex-dir
         <div class="legend" id="cum-legend"></div>
         <p class="readout" id="cum-rem">–</p>
       </div>
+      <div class="exp"><button class="btn" type="button" data-copy="cumul">Copier le calcul</button><span class="msg" role="status"></span></div>
+      <textarea class="exportbox" readonly hidden aria-label="Texte du calcul"></textarea>
     </section>
 
     <!-- Comparaison -->
@@ -286,6 +308,8 @@ details.notes ul { margin: 10px 0 0; padding-left: 20px; display: flex; flex-dir
         <summary>Valeurs du graphique</summary>
         <div class="scroll" style="margin-top:10px"><table class="vals" id="cmp-table"></table></div>
       </details>
+      <div class="exp"><button class="btn" type="button" data-copy="comparer">Copier le calcul</button><span class="msg" role="status"></span></div>
+      <textarea class="exportbox" readonly hidden aria-label="Texte du calcul"></textarea>
     </section>
   </div>
 
@@ -293,7 +317,8 @@ details.notes ul { margin: 10px 0 0; padding-left: 20px; display: flex; flex-dir
     <summary>Hypothèses et limites</summary>
     <ul>
       <li>Modèle linéaire-quadratique simple, sans correction de repopulation ni de réparation incomplète entre fractions.</li>
-      <li>Le cumul additionne des EQD2 sans tenir compte de la récupération des tissus entre deux traitements ni de l'intervalle de temps.</li>
+      <li>Le cumul additionne des EQD2. La récupération des tissus n'est prise en compte que par la part récupérée saisie pour chaque traitement, sans valeur par défaut : le choix relève de votre protocole, selon l'organe et le délai entre les traitements.</li>
+      <li>La fourchette liée à l'incertitude sur l'α/β est obtenue en recalculant pour des valeurs d'α/β comprises entre α/β − incertitude et α/β + incertitude. Elle ne couvre pas les autres sources d'incertitude.</li>
       <li>Les valeurs d'α/β proposées sont conventionnelles. Le choix pour un organe donné relève de votre protocole.</li>
       <li>Outil d'aide au calcul. Validez-le contre vos méthodes de référence avant tout usage clinique.</li>
     </ul>
@@ -316,9 +341,29 @@ details.notes ul { margin: 10px 0 0; padding-left: 20px; display: flex; flex-dir
   var eqd2 = function (d, n, ab) { return bed(d, n, ab) / (1 + 2 / ab); };
   var doseFromBed = function (b, d, ab) { return b / (1 + d / ab); };
   var getAb = function () { return parse($('#ab').value); };
+  var getU = function () { var u = parse($('#ab-u').value); return isFinite(u) && u > 0 ? u : 0; };
   var okAb = function (ab) { return isFinite(ab) && ab > 0; };
   var okPos = function (x) { return isFinite(x) && x > 0; };
   window.__lq = { bed: bed, eqd2: eqd2, doseFromBed: doseFromBed };
+
+  /* Fourchette d'une grandeur f(α/β) pour α/β ± incertitude. On échantillonne l'intervalle,
+     car la somme de plusieurs traitements n'est pas toujours monotone en α/β. */
+  function spread(f) {
+    var ab = getAb(), u = getU();
+    if (!okAb(ab) || u <= 0) return null;
+    var lo = Math.max(ab - u, 0.1), hi = ab + u, mn = Infinity, mx = -Infinity;
+    for (var k = 0; k <= 40; k++) {
+      var v = f(lo + (hi - lo) * k / 40);
+      if (isFinite(v)) { if (v < mn) mn = v; if (v > mx) mx = v; }
+    }
+    return isFinite(mn) ? { lo: mn, hi: mx, a: lo, b: hi } : null;
+  }
+  function showRange(el, f, digits) {
+    var s = spread(f);
+    if (!s) { el.hidden = true; el.textContent = ''; return; }
+    el.hidden = false;
+    el.textContent = 'α/β ' + nf(s.a, 1) + ' à ' + nf(s.b, 1) + ' : de ' + nf(s.lo, digits) + ' à ' + nf(s.hi, digits) + ' Gy';
+  }
 
   /* ---------- α/β presets ---------- */
   var PRESETS = [
@@ -342,6 +387,7 @@ details.notes ul { margin: 10px 0 0; padding-left: 20px; display: flex; flex-dir
     $$('.chip').forEach(function (c) { c.setAttribute('aria-pressed', String(Math.abs(parseFloat(c.dataset.ab) - ab) < 1e-9)); });
   }
   $('#ab').addEventListener('input', updateAll);
+  $('#ab-u').addEventListener('input', updateAll);
 
   /* ---------- Conversion ---------- */
   function updConv() {
@@ -351,6 +397,8 @@ details.notes ul { margin: 10px 0 0; padding-left: 20px; display: flex; flex-dir
     $('#c-D').textContent = ok ? nf(D, 2) : '–';
     $('#c-bed').textContent = nf(B, 1);
     $('#c-eqd2').textContent = nf(E, 1);
+    showRange($('#c-bed-r'), function (a) { return bed(d, n, a); }, 1);
+    showRange($('#c-eqd2-r'), function (a) { return eqd2(d, n, a); }, 1);
     var iso = $('#c-iso'), rd = $('#c-round');
     if (!ok || !okPos(dt)) {
       iso.innerHTML = 'Renseignez un schéma valide et une dose par fraction cible.'; rd.textContent = ''; return;
@@ -365,8 +413,8 @@ details.notes ul { margin: 10px 0 0; padding-left: 20px; display: flex; flex-dir
   /* ---------- Cumul ---------- */
   var uid = 0;
   var cum = [
-    { uid: ++uid, name: '1re irradiation', d: '2', n: '25' },
-    { uid: ++uid, name: '2e irradiation', d: '3', n: '8' }
+    { uid: ++uid, name: '1re irradiation', d: '2', n: '25', rec: '0' },
+    { uid: ++uid, name: '2e irradiation', d: '3', n: '8', rec: '0' }
   ];
   function cumRowHTML(r, i) {
     var id = 'cum-' + r.uid;
@@ -374,9 +422,11 @@ details.notes ul { margin: 10px 0 0; padding-left: 20px; display: flex; flex-dir
       '<div class="f name"><label for="' + id + '-name"><i class="sw" style="background:var(--s' + ((i % 8) + 1) + ')"></i>Traitement</label><input id="' + id + '-name" class="in txt" data-k="name" value="' + esc(r.name) + '" autocomplete="off"></div>' +
       '<div class="f"><label for="' + id + '-d">d (Gy/fx)</label><input id="' + id + '-d" class="in" data-k="d" type="text" inputmode="decimal" value="' + esc(r.d) + '" autocomplete="off"></div>' +
       '<div class="f"><label for="' + id + '-n">n fractions</label><input id="' + id + '-n" class="in" data-k="n" type="text" inputmode="decimal" value="' + esc(r.n) + '" autocomplete="off"></div>' +
+      '<div class="f"><label for="' + id + '-r">Récupéré (%)</label><input id="' + id + '-r" class="in" data-k="rec" type="text" inputmode="decimal" value="' + esc(r.rec) + '" autocomplete="off"></div>' +
       '<div class="o"><span class="lab">Dose totale</span><span class="val" data-o="D">–</span></div>' +
       '<div class="o"><span class="lab">BED</span><span class="val" data-o="B">–</span></div>' +
-      '<div class="o strong"><span class="lab">EQD2</span><span class="val" data-o="E">–</span></div>' +
+      '<div class="o"><span class="lab">EQD2</span><span class="val" data-o="E">–</span></div>' +
+      '<div class="o strong"><span class="lab">EQD2 comptée</span><span class="val" data-o="C">–</span></div>' +
       '<button type="button" class="x" data-del aria-label="Supprimer ce traitement">×</button>' +
       '</div>';
   }
@@ -398,26 +448,44 @@ details.notes ul { margin: 10px 0 0; padding-left: 20px; display: flex; flex-dir
   });
   $('#cum-add').addEventListener('click', function () {
     if (cum.length >= 8) return;
-    cum.push({ uid: ++uid, name: 'Traitement ' + (cum.length + 1), d: '2', n: '10' });
+    cum.push({ uid: ++uid, name: 'Traitement ' + (cum.length + 1), d: '2', n: '10', rec: '0' });
     renderCumRows(); updCum();
   });
   ['#cum-limit', '#cum-next'].forEach(function (s) { $(s).addEventListener('input', updCum); });
+
+  /* Part récupérée saisie pour un traitement, entre 0 et 1 */
+  function recOf(r) {
+    var x = parse(String(r.rec).replace('%', ''));
+    return (isFinite(x) ? Math.min(100, Math.max(0, x)) : 0) / 100;
+  }
+  /* Totaux comptés (après retrait de la part récupérée) pour un α/β donné */
+  function cumTotals(ab) {
+    var B = 0, E = 0, k = 0;
+    cum.forEach(function (r) {
+      var d = parse(r.d), n = parse(r.n);
+      if (okPos(d) && okPos(n)) { var f = 1 - recOf(r); B += bed(d, n, ab) * f; E += eqd2(d, n, ab) * f; k++; }
+    });
+    return { B: B, E: E, k: k };
+  }
 
   function updCum() {
     var ab = getAb(), okA = okAb(ab), sumB = 0, sumE = 0, parts = [];
     cum.forEach(function (r, i) {
       var row = $('.row[data-uid="' + r.uid + '"]');
-      var d = parse(r.d), n = parse(r.n), ok = okA && okPos(d) && okPos(n);
+      var d = parse(r.d), n = parse(r.n), ok = okA && okPos(d) && okPos(n), f = 1 - recOf(r);
       var B = ok ? bed(d, n, ab) : NaN, E = ok ? eqd2(d, n, ab) : NaN;
       if (row) {
         $('[data-o="D"]', row).textContent = ok ? nf(d * n, 2) : '–';
         $('[data-o="B"]', row).textContent = nf(B, 1);
         $('[data-o="E"]', row).textContent = nf(E, 1);
+        $('[data-o="C"]', row).textContent = nf(E * f, 1);
       }
-      if (ok) { sumB += B; sumE += E; parts.push({ i: i, name: r.name || ('Traitement ' + (i + 1)), E: E }); }
+      if (ok) { sumB += B * f; sumE += E * f; parts.push({ i: i, name: r.name || ('Traitement ' + (i + 1)), E: E * f, rec: 1 - f }); }
     });
     $('#cum-bed').textContent = parts.length ? nf(sumB, 1) : '–';
     $('#cum-eqd2').textContent = parts.length ? nf(sumE, 1) : '–';
+    showRange($('#cum-bed-r'), function (a) { var t = cumTotals(a); return t.k ? t.B : NaN; }, 1);
+    showRange($('#cum-eqd2-r'), function (a) { var t = cumTotals(a); return t.k ? t.E : NaN; }, 1);
 
     var limit = parse($('#cum-limit').value), dn = parse($('#cum-next').value);
     var bar = $('#cum-bar'), wrap = $('#cum-barwrap'), lg = $('#cum-legend'), rem = $('#cum-rem');
@@ -437,7 +505,7 @@ details.notes ul { margin: 10px 0 0; padding-left: 20px; display: flex; flex-dir
       wrap.appendChild(m);
     }
     lg.innerHTML = parts.map(function (p) {
-      return '<span><i class="sw" style="background:var(--s' + ((p.i % 8) + 1) + ')"></i>' + esc(p.name) + ' <b>' + nf(p.E, 1) + ' Gy</b></span>';
+      return '<span><i class="sw" style="background:var(--s' + ((p.i % 8) + 1) + ')"></i>' + esc(p.name) + ' <b>' + nf(p.E, 1) + ' Gy</b>' + (p.rec > 0 ? ' (' + nf(p.rec * 100, 0) + ' % récupéré)' : '') + '</span>';
     }).join('');
 
     if (!hasLimit) { rem.textContent = 'Saisissez une limite d\'EQD2 pour calculer la marge restante.'; rem.className = 'readout'; return; }
@@ -557,10 +625,14 @@ details.notes ul { margin: 10px 0 0; padding-left: 20px; display: flex; flex-dir
     g += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + sy(0) + '" y2="' + sy(0) + '" style="stroke:var(--edge);stroke-width:1"/>';
     g += '<text x="' + m.l + '" y="12" text-anchor="start">EQD2 (Gy)</text>';
     g += '<text x="' + (m.l + pw / 2) + '" y="' + (H - 6) + '" text-anchor="middle">α/β (Gy)</text>';
-    var ab = getAb();
+    var ab = getAb(), uu = getU();
+    if (okAb(ab) && uu > 0) {
+      var x0 = sx(Math.min(15, Math.max(1, ab - uu))), x1 = sx(Math.min(15, Math.max(1, ab + uu)));
+      if (x1 > x0) g += '<rect x="' + x0 + '" y="' + m.t + '" width="' + (x1 - x0) + '" height="' + ph + '" style="fill:var(--accent);opacity:0.12"/>';
+    }
     if (okAb(ab) && ab >= 1 && ab <= 15) {
       g += '<line x1="' + sx(ab) + '" x2="' + sx(ab) + '" y1="' + m.t + '" y2="' + sy(0) + '" style="stroke:var(--accent);stroke-width:1;stroke-dasharray:4 3"/>' +
-           '<text x="' + sx(ab) + '" y="' + (m.t - 6) + '" text-anchor="' + (ab > 12 ? 'end' : 'start') + '" style="fill:var(--accent)">α/β choisi : ' + nf(ab, 2) + '</text>';
+           '<text x="' + sx(ab) + '" y="' + (m.t - 6) + '" text-anchor="' + (ab > 12 ? 'end' : 'start') + '" style="fill:var(--accent)">α/β choisi : ' + nf(ab, 2) + (uu > 0 ? ' ± ' + nf(uu, 2) : '') + '</text>';
     }
     series.forEach(function (s) {
       var d = s.pts.map(function (v, k) { return (k ? 'L' : 'M') + sx(xs[k]).toFixed(1) + ' ' + sy(v).toFixed(1); }).join('');
@@ -607,6 +679,77 @@ details.notes ul { margin: 10px 0 0; padding-left: 20px; display: flex; flex-dir
   } else {
     window.addEventListener('resize', drawChart);
   }
+
+  /* ---------- Résumé copiable ---------- */
+  var FORMULAS = 'Formules : BED = n·d·(1 + d/(α/β)) ; EQD2 = BED / (1 + 2/(α/β))';
+  function stamp() {
+    return 'Calculé le ' + new Date().toLocaleDateString('fr-FR') + ' avec le calculateur EQD2 / BED (outil d\'aide au calcul, à valider avant tout usage clinique).';
+  }
+  function abLine() {
+    var u = getU();
+    return 'α/β = ' + nf(getAb(), 2) + ' Gy' + (u > 0 ? ' (± ' + nf(u, 2) + ' Gy)' : '');
+  }
+  function summaryConv() {
+    var ab = getAb(), d = parse($('#c-d').value), n = parse($('#c-n').value);
+    if (!okAb(ab) || !okPos(d) || !okPos(n)) return null;
+    var L = ['Conversion EQD2 / BED', abLine(),
+      'Schéma : ' + nf(d, 2) + ' Gy × ' + nf(n, 2) + ' fractions = ' + nf(d * n, 2) + ' Gy',
+      'BED = ' + nf(bed(d, n, ab), 1) + ' Gy', 'EQD2 = ' + nf(eqd2(d, n, ab), 1) + ' Gy'];
+    if (!$('#c-bed-r').hidden) L.push('Fourchette BED : ' + $('#c-bed-r').textContent);
+    if (!$('#c-eqd2-r').hidden) L.push('Fourchette EQD2 : ' + $('#c-eqd2-r').textContent);
+    var iso = $('#c-iso').textContent, rd = $('#c-round').textContent;
+    if (iso && rd) L.push('', iso, rd);
+    L.push('', FORMULAS, stamp());
+    return L.join('\n');
+  }
+  function summaryCum() {
+    var ab = getAb();
+    if (!okAb(ab)) return null;
+    var L = ['Cumul de traitements', abLine(), ''], t = cumTotals(ab);
+    if (!t.k) return null;
+    cum.forEach(function (r, i) {
+      var d = parse(r.d), n = parse(r.n);
+      if (!okPos(d) || !okPos(n)) return;
+      var E = eqd2(d, n, ab), rec = recOf(r);
+      L.push('- ' + (r.name || ('Traitement ' + (i + 1))) + ' : ' + nf(d, 2) + ' Gy × ' + nf(n, 2) + ' = ' + nf(d * n, 2) + ' Gy ; BED ' + nf(bed(d, n, ab), 1) + ' Gy ; EQD2 ' + nf(E, 1) + ' Gy' +
+        (rec > 0 ? ' ; part récupérée ' + nf(rec * 100, 0) + ' % ; EQD2 comptée ' + nf(E * (1 - rec), 1) + ' Gy' : ''));
+    });
+    L.push('', 'BED cumulée = ' + nf(t.B, 1) + ' Gy', 'EQD2 cumulée = ' + nf(t.E, 1) + ' Gy');
+    if (!$('#cum-eqd2-r').hidden) L.push('Fourchette EQD2 cumulée : ' + $('#cum-eqd2-r').textContent);
+    L.push($('#cum-rem').textContent, '', FORMULAS, stamp());
+    return L.join('\n');
+  }
+  function summaryCmp() {
+    var ab = getAb();
+    if (!okAb(ab) || !series.length) return null;
+    var L = ['Comparaison de fractionnements', abLine(), ''], high = false;
+    series.forEach(function (s) {
+      if (s.d > 8) high = true;
+      L.push('- ' + s.label + ' fractions : dose totale ' + nf(s.d * s.n, 2) + ' Gy ; BED ' + nf(bed(s.d, s.n, ab), 1) + ' Gy ; EQD2 ' + nf(eqd2(s.d, s.n, ab), 1) + ' Gy' + (s.d > 8 ? ' (†)' : ''));
+    });
+    if (high) L.push('', '† Au-delà d\'environ 8 Gy par fraction, la validité du modèle linéaire-quadratique est discutée.');
+    L.push('', FORMULAS, stamp());
+    return L.join('\n');
+  }
+  var SUMMARY = { conv: summaryConv, cumul: summaryCum, comparer: summaryCmp };
+  $$('[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var panel = btn.closest('.panel'), msg = $('.msg', panel), box = $('.exportbox', panel);
+      var text = SUMMARY[btn.dataset.copy]();
+      if (!text) { msg.textContent = 'Renseignez un calcul valide avant de copier.'; return; }
+      box.value = text;
+      var fallback = function () {
+        box.hidden = false; box.focus(); box.select();
+        msg.textContent = 'Sélectionnez le texte et copiez-le (Ctrl ou Cmd + C).';
+      };
+      try {
+        if (!navigator.clipboard || !navigator.clipboard.writeText) { fallback(); return; }
+        navigator.clipboard.writeText(text).then(function () {
+          box.hidden = true; msg.textContent = 'Copié dans le presse-papiers.';
+        }, fallback);
+      } catch (e) { fallback(); }
+    });
+  });
 
   /* ---------- Tabs ---------- */
   var TABS = { conversion: ['tab-conv', 'p-conv'], cumul: ['tab-cum', 'p-cum'], comparer: ['tab-cmp', 'p-cmp'] };
